@@ -2,70 +2,49 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "./interfaces/FFICheats.sol";
 
-contract VyperDeployer is Test {
-    FFICheats cheatCodes = FFICheats(HEVM_ADDRESS);
+abstract contract VyperTest is Test {
 
-    function compileVyper(string memory fileLocation)
-        public
-        returns (bytes memory)
-    {
+    function compileVyper(string memory fileLocation
+    ) public returns (bytes memory byteCode) {
         string[] memory cmds = new string[](2);
         cmds[0] = "vyper";
         cmds[1] = fileLocation;
-
-        bytes memory bytecode = cheatCodes.ffi(cmds);
-        return bytecode;
+        return vm.ffi(cmds);
     }
 
-    function compileVyper(string memory fileLocation, bytes calldata args)
-        public
-        returns (bytes memory)
-    {
+    function compileVyper(
+        string memory fileLocation, 
+        bytes memory args
+    ) public returns (bytes memory byteCodeWithArgs) {
         string[] memory cmds = new string[](2);
         cmds[0] = "vyper";
         cmds[1] = fileLocation;
-
-        bytes memory bytecode = cheatCodes.ffi(cmds);
-        bytes memory bytecodeWithArgs = abi.encodePacked(bytecode, args);
-        return bytecodeWithArgs;
+        return abi.encodePacked(vm.ffi(cmds), args);
     }
 
-    function deployByteCode(bytes memory vyperFileByteCode)
-        public
-        returns (address)
-    {
-        address deployedAddress;
+    function deployByteCode(
+        bytes memory vyperByteCode
+    ) public returns (address contractAddr) {
         assembly {
-            deployedAddress := create(
-                0,
-                add(vyperFileByteCode, 0x20),
-                mload(vyperFileByteCode)
-            )
+            contractAddr := create(0, add(vyperByteCode, 0x20), mload(vyperByteCode))
         }
         require(
-            deployedAddress != address(0),
-            "VyperDeployer could not deploy contract"
+            contractAddr != address(0) && contractAddr.code.length > 0,
+            "Vyper contract deployment failed"
         );
-        return deployedAddress;
     }
 
-    function deployContract(string memory fileLocation)
-        public
-        returns (address)
-    {
-        bytes memory vyperFileByteCode = compileVyper(fileLocation);
-        address deployedAddress = deployByteCode(vyperFileByteCode);
-        return deployedAddress;
+    function deployContract(
+        string memory fileLocation
+    ) public returns (address contractAddr) {
+        return deployByteCode(compileVyper(fileLocation));
     }
 
-    function deployContract(string memory fileLocation, bytes calldata args)
-        public
-        returns (address)
-    {
-        bytes memory bytecode = compileVyper(fileLocation, args);
-        address deployedAddress = deployByteCode(bytecode);
-        return deployedAddress;
+    function deployContract(
+        string memory fileLocation, 
+        bytes memory args
+    ) public returns (address contractAddr) {
+        return deployByteCode(compileVyper(fileLocation, args));
     }
 }
